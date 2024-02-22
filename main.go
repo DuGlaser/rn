@@ -11,6 +11,11 @@ import (
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "usage: %s file1 file2 ...\n", os.Args[0])
+		os.Exit(1)
+	}
+
 	paths := os.Args[1:]
 	before, err := resolveAbsPath(paths)
 	if err != nil {
