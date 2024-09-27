@@ -3,20 +3,26 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/spf13/pflag"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: %s file1 file2 ...\n", os.Args[0])
+	copyFlag := pflag.BoolP("copy", "c", false, "コピーを行う")
+	pflag.Parse()
+
+	paths := pflag.Args()
+	if len(paths) < 1 {
+		fmt.Fprintf(os.Stderr, "使い方: %s [-c] file1 file2 ...\n", os.Args[0])
 		os.Exit(1)
 	}
 
-	paths := os.Args[1:]
 	before, err := resolveAbsPath(paths)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -37,7 +43,12 @@ func main() {
 	for i, b := range before {
 		if b != after[i] {
 			a := after[i]
-			err := moveFile(b, a)
+			var err error
+			if *copyFlag {
+				err = copyFile(b, a)
+			} else {
+				err = moveFile(b, a)
+			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
@@ -103,4 +114,24 @@ func moveFile(from string, to string) error {
 	}
 
 	return os.Rename(from, to)
+}
+
+func copyFile(from string, to string) error {
+	dir := filepath.Dir(to)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	fromFile, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+
+	toFile, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(toFile, fromFile)
+	return err
 }
